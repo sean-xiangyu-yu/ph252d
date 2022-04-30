@@ -28,7 +28,9 @@ Patients in different primary care practices in 18 regions.
 
 (a) The endogenous variables V are variables that are meaningful for the scientific question and affected by other variables in this model. For this study, we define the following endogenous variables:
 
-* C = {V1, V2, V3, V4, V5}
+* $L_0 = \{V1, V2, V3, V4, V5\}_{t=2}$
+
+* $L_1 = \{V1, V2, V3, V4, V5\}_{t=3}$
 
 * V1: age, continuous variable supported on [0,100]
 
@@ -40,46 +42,74 @@ Patients in different primary care practices in 18 regions.
 
 * V5: race categories, white/black/all other, 70:20:10.
 
+* V1-V5 are time variant patient-level covariates
 
-* T = Initiative of Comprehensive Primary Care Plus (CPC+)
+* $X = \{X1, X2, X3, X4, X5, X6, X7, X8,X9\}$
 
-* Y = Monthly Medicare patient expenditures
+* X1-X9 are time-invariant practice-level covariates.
 
-Here $V = (C,T,Y)$
+* $Z$ = Initiative of Comprehensive Primary Care Plus (CPC+) in year 3
+
+
+* $Y_0$ = Monthly Medicare patient expenditures in year 2
+
+* $Y_1$ = Monthly Medicare patient expenditures in year 3
+
+Here $V = (C_0,C_1,T_0,T_1,Y_0,Y_1)$
 
 
 (b) The exogenous U include all the unmeasured or unknown factors not included in V that impact the values that the V variables take. 
 
-The exogenous nodes are $U = (U_T,U_C,U_Y)$. 
+The exogenous nodes are $U = (U_X,U_T,U_{L_0},U_{L_1},U_{Y_0},U_{Y_1})$. 
 
-We would need to place some independence assumptions on the distribution of unmeasured factors $P_U$. Specifically, we first need $U_T \indep U_Y$ and then we also need one of the following assumption: $U_C \indep U_T$ or $U_C \indep U_Y$.
-
-Here we let $U_1 = \{U_C, U_T\}$ and $U_2 = \{U_C, U_Y\}$. Under these two sets of assumptions, we can plot DAGs as follows. From the DAGs, we notice that when conditioning on C, the backdoor path is blocked and the target parameter is therefore identifiable.
+According to the guidance of ACIC competition, the DGPs will be free of unmeasured confounding. In other words, we can place some independence assumptions on the distribution of unmeasured factors $P_U$. To simplify, we assume the all the exogenous variables satisfy pairwise independence.
 
 
 (c)  This would suggest the following structural equations F:
 
-$$C =f_C(U_C)$$
-$$T = f_T(C,U_T)$$
-$$Y = f_Y (C,T,U_Y )$$
+$$X =f_{X}(U_{X})$$
+$$L_0 =f_{L_0}(U_{L_0})$$
+$$Y_0 = f_{Y_0}(U_{Y_0},L_0)$$
+$$L_1 =f_{L_1}(U_{L_1},L_0,Y_0)$$
+$$Z = f_Z(U_{Z},L_1,Y_0,X)$$
+$$Y_1 = f_{Y_1}(U_{Y_1},L_1,T,Y_0,X)$$
 (d) Exclusion restrictions. 
 
-An exclusion restriction is when a variable is not directly affected by another variable that precedes it in the structural causal model. For now we do not have a restriction regarding the endogenous variables. 
+An exclusion restriction is when a variable is not directly affected by another variable that precedes it in the structural causal model. For our model, we assume $L_0$ didn't directly affect $T$, but has some indirect effect through $L_1$ and $Y_0$. In addition, we assume practice level covariants X only have impact on $Y_0$, $Y_1$, $T$, but do not on those time-variant patient level covariants $L_0$ and $L_1$.
 
 (f) Causal graph.
 
 ```{r}
 dag_m <- dagitty('dag {
-    T [pos="0,1"]
-    Y [pos="1,1"]
-    U [pos="0.5,2"]
-    C [pos="0.5,1.5"]
-    U->T
-    U->C
-    U->Y
-    C->T
-    C->Y
-    T->Y
+    Y0 [pos="0,0"]
+    L0 [pos="0,1"]
+    Z [pos="0.5,0.5"]
+    X [pos="0.5,0"]
+    L1 [pos="0.5, 1"]
+    Y1 [pos="1,0.5"]
+    UL0[pos="-0.3,1"]
+    UL1[pos="0.5,1.5"]
+    UY0[pos="-0.3,0"]
+    UZ[pos="0.75,1"]
+    UX[pos="0.75,0"]
+    UY1[pos="1,1"]
+    UL0->L0
+    UL1->L1
+    UY0->Y0
+    UZ->Z
+    UX->X
+    UY1->Y1
+    L0->L1
+    L0->Y0
+    Y0->Z
+    Y0->L1
+    Y0->Y1
+    L1->Y1
+    L1->Z
+    X->Y0
+    X->Z
+    X->Y1
+    Z->Y1
     }')
 ggdag(dag_m, layout = "circle")
 
@@ -91,12 +121,12 @@ ggdag(dag_m, layout = "circle")
 
 (a) The counterfactuals of interest are Y(1) and Y(0) and they can be defined as 
 
-- Y(1): Monthly Medicare patient expenditures if all patients had joined CPC+ for 2 years
+- $Y_1(1)$: Monthly Medicare patient expenditures if all patients had joined CPC+ in year 3.
 
-- Y(0): Monthly Medicare patient expenditures if all patients hadn't joined CPC+ for 2 years.
+- $Y_1(0)$: Monthly Medicare patient expenditures if all patients hadn't joined CPC+ in year 3.
 
 (b) Our target parameter is the average causal effect: 
-$$\Psi_{U,V}(P_0) = \mathbb E_{U,V}[Y(1) - Y(0)]$$ 
+$$\Psi_{U,V}(P_0) = \mathbb E_{U,V}[Y_1(1) - Y_1(0)]$$ 
 This means the target causal parameter is the difference in the monthly Medicare patient expenditures for patients enrolled in CPC+ for 2 years and not enrolled in CPC+.
 
 ## Step 4. Specify the observed data.
@@ -104,21 +134,26 @@ This means the target causal parameter is the difference in the monthly Medicare
 Suppose the data is from i.i.d sample from n = 329250 randomly sampled
 patients.
 
-* Ti: whether patient i has enrolled in CPC+ for 2 years
-* Ci: baseline confounders collected for patient i
-* Yi: Monthly Medicare patient expenditures for patient i
+* $Ti$: whether patient i has enrolled in CPC+ in year 3
+
+* $Xi$: practical level confounders collected for patient i 
+
+* $L_{0,i}$: patient level confounders collected for patient i in year 2
+* $L_{1,i}$: patient level confounders collected for patient i in year 3
+* $Y_{0,i}$: Monthly Medicare patient expenditures for patient i in year 2
+* $Y_{1,i}$: Monthly Medicare patient expenditures for patient i in year 3
 
 Further assume that the collected data are independent and identically distributed. 
 
 ## Step 5. Identify the targeted causal effect with the observed data. 
 (a) Conditional independent assumption
 
-$Y_i(0), Y_i(1) \indep T_i| C_i , i = 1,...,n,$  
+$$Y_{1,i}(0),Y_{1,i}(0) \indep Z|X,L_1,Y_0$$
 
-(b) write our causal parameter with the observed data by G-computation: 
+(b) By backdoor-path criterion, we can write our causal parameter with the observed data by G-computation: 
 
 $$
-\Psi(P_0) = \mathbb E[\mathbb E[Y |T = 1,X]] - \mathbb E[\mathbb E[Y |T = 1,X]]
+\Psi(P_0) = \mathbb E[\mathbb E[Y_1 |T = 1,X,L_1,Y_0]] - \mathbb E[\mathbb E[Y_1 |T = 1,X,L_1,Y_0]]
 $$
 Under our causal model and assumptions, average treatment effect equals to the observed difference in
 mean outcome within confounder strata, standardized to distribution of confounders.
@@ -128,7 +163,9 @@ mean outcome within confounder strata, standardized to distribution of confounde
 
 ## Step 6. Estimation and Statistical Inference.
 ```{r eval=FALSE, include=FALSE}
+library(dplyr)
 i = 1
+
 practice_files = list.files("practice", pattern="*.csv", full.names=TRUE)
 practice_year_files = list.files("practice_year", pattern="*.csv", full.names=TRUE)
 patient_files = list.files("patient", pattern="*.csv", full.names=TRUE)
@@ -140,10 +177,17 @@ patient_year = read.csv(patient_year_files[i])
 practice_year_exposure = practice_year[, c("id.practice","year","Z")]
 mergedata = patient %>%
   dplyr::full_join(patient_year, by = "id.patient") %>%
-  #dplyr::full_join(practice, by = "id.practice") %>%
-  dplyr::full_join(practice_year_exposure, by = c("id.practice","year")) %>%
-  filter(year == 4)
-ObsData = data.frame(mergedata[,paste0("V",1:5)],Z= mergedata$Z,Y=mergedata$Y)
+  dplyr::full_join(practice, by = "id.practice") %>%
+  dplyr::full_join(practice_year_exposure, by = c("id.practice","year")) 
+  
+meta1 = mergedata %>% filter(year == 3)
+meta2 = mergedata %>% 
+  filter(year == 2) %>%
+  select(id.patient,Y)
+colnames(meta2)[2]= "Y0"
+meta3 = meta1 %>%
+  dplyr::inner_join(meta2, by = "id.patient") 
+ObsData = data.frame(meta3[,c(paste0("X",1:9),paste0("V",1:5),"Y0")],Z=meta3$Z,Y=meta3$Y)
 write.table(ObsData, "filtered_patient_1.csv")
 
 ```
@@ -159,7 +203,7 @@ ObsData = read.table("filtered_patient_1.csv")
 #------------------------------------------
 library("SuperLearner")
 library("ltmle")
-SL.library<- c("SL.glm", "SL.step", "SL.gam")
+SL.library<- c("SL.glm", "SL.gam") #"SL.step"
 
 #------------------------------------------
 # 2. call ltmle with Super Learner (same libraries)
