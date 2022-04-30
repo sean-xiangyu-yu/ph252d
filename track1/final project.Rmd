@@ -148,12 +148,12 @@ Further assume that the collected data are independent and identically distribut
 ## Step 5. Identify the targeted causal effect with the observed data. 
 (a) Conditional independent assumption
 
-$$Y_{1,i}(0),Y_{1,i}(0) \indep Z|X,L_1,Y_0$$
+$$Y_{1,i}(0),Y_{0,i}(0) \indep Z|X,L_1,Y_0$$
 
 (b) By backdoor-path criterion, we can write our causal parameter with the observed data by G-computation: 
 
 $$
-\Psi(P_0) = \mathbb E[\mathbb E[Y_1 |T = 1,X,L_1,Y_0]] - \mathbb E[\mathbb E[Y_1 |T = 1,X,L_1,Y_0]]
+\Psi(P_0) = \mathbb E[\mathbb E[Y_1 |T = 1,X,L_1,Y_0]] - \mathbb E[\mathbb E[Y_1 |T = 0,X,L_1,Y_0]]
 $$
 Under our causal model and assumptions, average treatment effect equals to the observed difference in
 mean outcome within confounder strata, standardized to distribution of confounders.
